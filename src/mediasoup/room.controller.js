@@ -898,6 +898,7 @@ export function roomController(io)
                 socket.to(peer.roomId).emit("producerPaused", {
                     producerId,
                     peerId: socket.id,
+                    kind: producer.kind,
                 });
                 // Others can show "user is muted" in their UI
 
@@ -934,6 +935,7 @@ export function roomController(io)
                 socket.to(peer.roomId).emit("producerResumed", {
                     producerId,
                     peerId: socket.id,
+                    kind: producer.kind,
                 });
                 // Others can show "user is unmuted" in their UI
 
