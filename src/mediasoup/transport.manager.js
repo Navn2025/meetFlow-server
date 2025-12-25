@@ -103,7 +103,7 @@ const transportConfig={
     // WHY: Some networks block UDP (corporate firewalls)
     // TCP is slower but more reliable, works through more firewalls
 
-    preferUdp: true,
+    preferUdp: false,
     // WHAT: Prefer UDP over TCP when both are available
     // WHY: UDP is better for real-time communication (lower latency)
     // If UDP fails, will automatically fall back to TCP
