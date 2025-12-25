@@ -14,7 +14,7 @@ const httpServer=http.createServer(app);
 const PORT=process.env.PORT||3000;
 
 // Initialize Socket.IO with mediasoup
-const io=initSocketServer(httpServer);
+const io=await initSocketServer(httpServer);
 
 httpServer.listen(PORT, () =>
 {

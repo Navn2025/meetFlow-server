@@ -13,13 +13,16 @@ const initSocketServer=async (httpServer) =>
 
     // 🔥 Start socket.io
     const io=new Server(httpServer, {
-
         cors: {
-            origin: "https://meet-flow-zy99.vercel.app",
-            allowedHeaders: ["Content-Type", "Authorization"],
-            credentials: true
-        }
 
+            origin: [
+                "http://localhost:5173",
+                "https://meet-flow-zy99.vercel.app/"
+            ],
+            methods: ["GET", "POST"],
+            credentials: true
+        },
+        transports: ["polling", "websocket"]
     });
 
     console.log("⚡ Socket.IO initialized");
