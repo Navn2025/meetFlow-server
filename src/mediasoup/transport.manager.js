@@ -43,30 +43,25 @@ import {getRouter} from "./router.manager.js";
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const transportConfig={
+// Helper: Get announced IP and warn if not set
+const getAnnouncedIp=() =>
+{
+    if (!process.env.ANNOUNCED_IP||process.env.ANNOUNCED_IP==="")
+    {
+        console.warn("[mediasoup] ANNOUNCED_IP environment variable is not set. If running on a public server, set ANNOUNCED_IP to your public IP address. Defaulting to null (local testing mode).");
+        return null;
+    }
+    return process.env.ANNOUNCED_IP;
+};
 
+const transportConfig={
     // ═══════════════════════════════════════════════════════════════════════
     // LISTEN IPs - Where the server listens for connections
     // ═══════════════════════════════════════════════════════════════════════
     listenIps: [
         {
             ip: "0.0.0.0",
-            // WHAT: The IP address to listen on
-            // "0.0.0.0" = Listen on ALL network interfaces
-            // This allows connections from any network
-
-            announcedIp: process.env.ANNOUNCED_IP
-            // WHAT: The IP address to tell clients to connect to
-            // WHY: Your server might have a different public IP than local IP
-            //
-            // EXAMPLE:
-            // - Server listens on 0.0.0.0 (all interfaces)
-            // - But clients need to connect to 203.0.113.5 (your public IP)
-            // - So we "announce" 203.0.113.5 to clients
-            //
-            // process.env.ANNOUNCED_IP = Get from environment variable
-            // || = "or" - try next value if first is empty
-            // null = Let mediasoup figure it out (works for local testing)
+            announcedIp: getAnnouncedIp(),
         },
     ],
 
@@ -193,27 +188,29 @@ const recvTransportOptions={
 
 export const createWebRtcTransport=async (roomId, type="send") =>
 {
-
     // ─── Get the router for this room ───
     const router=getRouter(roomId);
 
     if (!router)
     {
+        console.error(`[mediasoup] Router not found for roomId: ${roomId}`);
         throw new Error(`Router not found for roomId: ${roomId}`);
-        // Can't create transport without a router!
-        // This means the room doesn't exist
     }
 
     // ─── Choose options based on transport type ───
     const options=type==="send"? sendTransportOptions:recvTransportOptions;
-    // Ternary operator: condition ? valueIfTrue : valueIfFalse
-    // If type is "send", use sendTransportOptions
-    // Otherwise, use recvTransportOptions
+    console.log(`[mediasoup] Creating WebRTC ${type} transport with options:`, JSON.stringify(options, null, 2));
 
     // ─── Create the transport on the router ───
-    const transport=await router.createWebRtcTransport(options);
-    // This creates a new WebRTC transport with our configuration
-    // "await" because this is an async operation
+    let transport;
+    try
+    {
+        transport=await router.createWebRtcTransport(options);
+    } catch (err)
+    {
+        console.error(`[mediasoup] Failed to create WebRTC ${type} transport:`, err);
+        throw err;
+    }
 
     // ─── Set bandwidth limit for receive transports ───
     if (type==="recv")
@@ -221,56 +218,31 @@ export const createWebRtcTransport=async (roomId, type="send") =>
         try
         {
             await transport.setMaxIncomingBitrate(1500000);
-            // WHAT: Limit incoming bitrate to 1.5 Mbps
-            // WHY: Prevent one user from using too much bandwidth
-            // This helps when many users are in the room
-            //
-            // 1500000 bits = 1.5 Mbps = good quality video
-            // Higher = better quality but more bandwidth
-            // Lower = worse quality but works on slow connections
-
         } catch (err)
         {
             console.warn("Could not set max incoming bitrate:", err.message);
-            // This might fail on some transport types, so we just warn
         }
     }
 
-    console.log(`🟢 WebRTC ${type} Transport created: ${transport.id}`);
-    // Log success with transport ID
+    // Log all transport parameters for debugging
+    console.log(`[mediasoup] 🟢 WebRTC ${type} Transport created: ${transport.id}`);
+    console.log(`[mediasoup] ICE Parameters:`, JSON.stringify(transport.iceParameters, null, 2));
+    console.log(`[mediasoup] ICE Candidates:`, JSON.stringify(transport.iceCandidates, null, 2));
+    console.log(`[mediasoup] DTLS Parameters:`, JSON.stringify(transport.dtlsParameters, null, 2));
+    if (transport.sctpParameters)
+    {
+        console.log(`[mediasoup] SCTP Parameters:`, JSON.stringify(transport.sctpParameters, null, 2));
+    }
 
     // ─── Return transport and connection parameters ───
     return {
         transport,
-        // The transport object itself
-        // We keep this on the server to manage the connection
-
         params: {
-            // These parameters are sent to the client
-            // The client uses them to connect
-
             id: transport.id,
-            // WHAT: Unique identifier for this transport
-            // Client needs this to refer to the transport
-
             iceParameters: transport.iceParameters,
-            // WHAT: ICE configuration
-            // Contains username and password for ICE authentication
-            // Used to establish the connection through NAT/firewalls
-
             iceCandidates: transport.iceCandidates,
-            // WHAT: List of ICE candidates (network addresses)
-            // These are the different ways the client can reach the server
-            // Example: [{ ip: "1.2.3.4", port: 40000, protocol: "udp" }, ...]
-
             dtlsParameters: transport.dtlsParameters,
-            // WHAT: DTLS (encryption) parameters
-            // Contains fingerprints for secure connection
-            // DTLS = Datagram TLS (encryption for UDP)
-
             sctpParameters: transport.sctpParameters,
-            // WHAT: SCTP parameters (for data channels)
-            // Will be null/undefined since we disabled SCTP
         },
     };
 };
@@ -301,41 +273,24 @@ export const createWebRtcTransport=async (roomId, type="send") =>
 
 export const connectTransport=async (transportId, dtlsParameters, roomId, peer) =>
 {
-
     // ─── Find the transport ───
     let transport=peer.sendTransports.get(transportId)||peer.recvTransports.get(transportId);
-    // Try to find in send transports first
-    // If not found (returns undefined), try recv transports
-    // || is "logical or" - uses first truthy value
-
     if (!transport)
     {
+        console.error(`[mediasoup] Transport not found: ${transportId} (roomId: ${roomId})`);
         throw new Error(`Transport not found: ${transportId}`);
-        // Transport must exist to connect!
-        // This could mean the ID is wrong or transport was closed
     }
 
     try
     {
-        // ─── Connect the transport with DTLS parameters ───
+        console.log(`[mediasoup] Connecting transport ${transportId} (roomId: ${roomId}) with DTLS parameters:`, JSON.stringify(dtlsParameters, null, 2));
         await transport.connect({dtlsParameters});
-        // This completes the DTLS handshake
-        // After this, the transport is ready for media
-        //
-        // dtlsParameters contains:
-        // - role: "client" or "server" (who initiates handshake)
-        // - fingerprints: Cryptographic hashes for verification
-
         console.log(`🔗 Transport ${transportId} connected (DTLS OK)`);
-        // 🔗 = Link emoji, indicates connection
-
         return true;
-
     } catch (err)
     {
-        console.error(`Transport connection failed: ${err.message}`);
+        console.error(`[mediasoup] Transport connection failed for ${transportId} (roomId: ${roomId}):`, err.message, err);
         throw err;
-        // Re-throw so caller can handle the error
     }
 };
 
