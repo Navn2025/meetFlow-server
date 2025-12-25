@@ -13,7 +13,7 @@ app.use(express.json());
 
 app.use(cookieParser());
 app.use(cors({
-    origin: "https://meet-flow-zy99.vercel.app/",   // your React frontend URL
+    origin: "https://meet-flow-zy99.vercel.app",   // your React frontend URL
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,   // IMPORTANT (allows cookies)
 }));
