@@ -17,7 +17,7 @@ const initSocketServer=async (httpServer) =>
 
             origin: [
                 "http://localhost:5173",
-                "https://meet-flow-zy99.vercel.app/"
+                "https://meet-flow-zy99.vercel.app"
             ],
             methods: ["GET", "POST"],
             credentials: true
