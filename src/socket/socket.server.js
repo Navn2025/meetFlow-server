@@ -15,7 +15,7 @@ const initSocketServer=async (httpServer) =>
     const io=new Server(httpServer, {
 
         cors: {
-            origin: "meet-flow-zy99.vercel.app",
+            origin: "https://meet-flow-zy99.vercel.app",
             allowedHeaders: ["Content-Type", "Authorization"],
             credentials: true
         }
