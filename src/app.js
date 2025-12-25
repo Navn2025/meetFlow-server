@@ -6,6 +6,14 @@ import participantRoutes from '../src/routes/participant.route.js';
 import roomRoutes from '../src/routes/room.route.js';
 import cors from 'cors'
 import morgan from 'morgan'
+
+import axios from "axios";
+
+(async () =>
+{
+    const res=await axios.get("https://api.ipify.org?format=json");
+    console.log("🌍 Public IP:", res.data.ip);
+})();
 configDotenv();
 const app=express();
 

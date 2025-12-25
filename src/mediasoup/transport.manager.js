@@ -55,7 +55,7 @@ const transportConfig={
             // "0.0.0.0" = Listen on ALL network interfaces
             // This allows connections from any network
 
-            announcedIp: process.env.ANNOUNCED_IP||process.env.PUBLIC_IP||null,
+            announcedIp: process.env.ANNOUNCED_IP
             // WHAT: The IP address to tell clients to connect to
             // WHY: Your server might have a different public IP than local IP
             //
